@@ -1,3 +1,4 @@
+class_name EnvVarModule
 extends RefCounted
 
 static func get_string(name: String, default_value: String = "") -> String:

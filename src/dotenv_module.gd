@@ -1,3 +1,4 @@
+class_name DotenvModule
 extends RefCounted
 
 static func load_file(path: String) -> Dictionary[String, String]:

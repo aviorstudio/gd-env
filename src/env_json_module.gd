@@ -1,3 +1,4 @@
+class_name EnvJsonModule
 extends RefCounted
 
 class LoadResult extends RefCounted:
