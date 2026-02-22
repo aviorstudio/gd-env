@@ -1,6 +1,9 @@
 class_name EnvVarModule
 extends RefCounted
 
+static func has(name: String) -> bool:
+	return not OS.get_environment(name).is_empty()
+
 static func get_string(name: String, default_value: String = "") -> String:
 	var raw: String = OS.get_environment(name)
 	if raw.is_empty():
