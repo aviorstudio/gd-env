@@ -98,7 +98,7 @@ static func parse_json_dict(json_text: String) -> LoadResult:
 	var json := JSON.new()
 	var parse_result: int = json.parse(json_text)
 	if parse_result != OK:
-		return LoadResult.new(false, "", 0, {}, "parse_error: " + json.error_string)
+		return LoadResult.new(false, "", 0, {}, "parse_error: " + json.get_error_message())
 
 	var payload: Variant = json.data
 	if not (payload is Dictionary):
