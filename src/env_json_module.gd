@@ -1,6 +1,8 @@
+## JSON loading helpers for file and HTTP configuration sources.
 class_name EnvJsonModule
 extends RefCounted
 
+## Standardized JSON load result payload.
 class LoadResult extends RefCounted:
 	var success: bool
 	var source: String
@@ -21,12 +23,14 @@ class LoadResult extends RefCounted:
 		self.data = data
 		self.error_message = error_message
 
+## Loads the first existing file path from the provided candidate list.
 static func load_dict_from_first_existing(paths: PackedStringArray) -> LoadResult:
 	for path: String in paths:
 		if FileAccess.file_exists(path):
 			return load_dict_from_file(path)
 	return LoadResult.new(false, "", 0, {}, "file_not_found")
 
+## Loads and parses a JSON dictionary from disk.
 static func load_dict_from_file(path: String) -> LoadResult:
 	if path.is_empty():
 		return LoadResult.new(false, path, 0, {}, "empty_path")
@@ -44,6 +48,7 @@ static func load_dict_from_file(path: String) -> LoadResult:
 	parsed.source = path
 	return parsed
 
+## Loads and parses a JSON dictionary from HTTP asynchronously.
 static func load_dict_from_http(
 	owner: Node,
 	url: String,
@@ -94,6 +99,7 @@ static func load_dict_from_http(
 		request_node.queue_free()
 		callback.call(LoadResult.new(false, final_url, 0, {}, "request_error_" + str(err)))
 
+## Parses raw JSON text into a typed dictionary load result.
 static func parse_json_dict(json_text: String) -> LoadResult:
 	var json := JSON.new()
 	var parse_result: int = json.parse(json_text)
@@ -106,6 +112,7 @@ static func parse_json_dict(json_text: String) -> LoadResult:
 
 	return LoadResult.new(true, "", 0, normalize_string_keys(payload), "")
 
+## Converts dictionary keys to strings for stable typed access.
 static func normalize_string_keys(raw: Dictionary) -> Dictionary[String, Variant]:
 	var normalized: Dictionary[String, Variant] = {}
 	for key in raw.keys():
@@ -115,18 +122,21 @@ static func normalize_string_keys(raw: Dictionary) -> Dictionary[String, Variant
 			normalized[str(key)] = raw[key]
 	return normalized
 
+## Deep-merges two dictionaries with overrides taking precedence.
 static func merge(base: Dictionary[String, Variant], overrides: Dictionary[String, Variant]) -> Dictionary[String, Variant]:
 	var out: Dictionary[String, Variant] = base.duplicate(true)
 	for key: String in overrides:
 		out[key] = overrides[key]
 	return out
 
+## Adds a URL query parameter with URI-encoded value.
 static func _with_query_param(url: String, key: String, value: String) -> String:
 	if key.is_empty():
 		return url
 	var separator: String = "&" if "?" in url else "?"
 	return url + separator + key + "=" + value.uri_encode()
 
+## Resolves relative web URLs against `window.location.origin`.
 static func _resolve_web_relative_url(url: String) -> String:
 	if url.begins_with("http://") or url.begins_with("https://"):
 		return url
