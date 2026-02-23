@@ -42,7 +42,9 @@ static func parse(text: String) -> Dictionary[String, String]:
 			continue
 
 		var value: String = line.substr(eq_index + 1).strip_edges()
+		value = _strip_inline_comment(value)
 		value = _strip_wrapping_quotes(value)
+		value = _unescape_quoted_value(value)
 		result[key] = value
 
 	return result
@@ -56,3 +58,27 @@ static func _strip_wrapping_quotes(value: String) -> String:
 	if (first == "\"" and last == "\"") or (first == "'" and last == "'"):
 		return value.substr(1, value.length() - 2)
 	return value
+
+## Strips inline comments for unquoted values (`#` and `;`).
+static func _strip_inline_comment(value: String) -> String:
+	if value.is_empty():
+		return value
+	var first: String = value.left(1)
+	if first == "\"" or first == "'":
+		return value
+	var hash_index: int = value.find(" #")
+	var semicolon_index: int = value.find(" ;")
+	var cutoff: int = -1
+	if hash_index >= 0:
+		cutoff = hash_index
+	if semicolon_index >= 0 and (cutoff < 0 or semicolon_index < cutoff):
+		cutoff = semicolon_index
+	if cutoff >= 0:
+		return value.substr(0, cutoff).strip_edges()
+	return value
+
+## Unescapes common quoted dotenv escape sequences.
+static func _unescape_quoted_value(value: String) -> String:
+	if value.is_empty():
+		return value
+	return value.replace("\\n", "\n").replace("\\t", "\t").replace("\\\"", "\"")

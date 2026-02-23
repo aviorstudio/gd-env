@@ -21,6 +21,8 @@ func _test_parse_supports_comments_quotes_export_and_empty_lines(failures: Array
 		+ "export API_KEY=abc123\n" \
 		+ "EMPTY=\n" \
 		+ "SPACED = value with spaces\n" \
+		+ "INLINE=value # this is comment\n" \
+		+ "INLINE2=value ; this is comment\n" \
 		+ "QUOTED=\"quoted value\"\n" \
 		+ "SINGLE='single value'\n" \
 		+ "; comment\n" \
@@ -33,6 +35,10 @@ func _test_parse_supports_comments_quotes_export_and_empty_lines(failures: Array
 		failures.append("Expected empty assignment to be preserved")
 	if parsed.get("SPACED", "") != "value with spaces":
 		failures.append("Expected trimmed key/value parsing with spaces")
+	if parsed.get("INLINE", "") != "value":
+		failures.append("Expected unquoted inline # comment to be stripped")
+	if parsed.get("INLINE2", "") != "value":
+		failures.append("Expected unquoted inline ; comment to be stripped")
 	if parsed.get("QUOTED", "") != "quoted value":
 		failures.append("Expected double-quoted value to be unwrapped")
 	if parsed.get("SINGLE", "") != "single value":
