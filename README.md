@@ -31,7 +31,7 @@ No project settings are required.
 
 ## Testing
 
-`./run_tests.sh`
+`./tests/test.sh`
 
 ## License
 
