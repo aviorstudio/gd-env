@@ -1,6 +1,8 @@
+## Minimal .env parser (`KEY=VALUE`) with comment/export handling.
 class_name DotenvModule
 extends RefCounted
 
+## Loads and parses a dotenv file into a string dictionary.
 static func load_file(path: String) -> Dictionary[String, String]:
 	if path.is_empty() or not FileAccess.file_exists(path):
 		return {}
@@ -13,6 +15,7 @@ static func load_file(path: String) -> Dictionary[String, String]:
 	file.close()
 	return parse(text)
 
+## Parses dotenv text content into key/value pairs.
 static func parse(text: String) -> Dictionary[String, String]:
 	var result: Dictionary[String, String] = {}
 	if text.is_empty():
@@ -44,6 +47,7 @@ static func parse(text: String) -> Dictionary[String, String]:
 
 	return result
 
+## Strips matching single or double wrapping quotes.
 static func _strip_wrapping_quotes(value: String) -> String:
 	if value.length() < 2:
 		return value
