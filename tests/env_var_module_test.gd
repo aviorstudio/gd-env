@@ -1,6 +1,6 @@
 extends SceneTree
 
-const EnvVarModule = preload("res://src/env_var_module.gd")
+const EnvVarModule = preload("res://addon/src/env_var_module.gd")
 
 func _initialize() -> void:
 	var failures: Array[String] = []

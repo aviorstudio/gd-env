@@ -1,6 +1,6 @@
 extends SceneTree
 
-const DotenvModule = preload("res://src/dotenv_module.gd")
+const DotenvModule = preload("res://addon/src/dotenv_module.gd")
 
 func _initialize() -> void:
 	var failures: Array[String] = []

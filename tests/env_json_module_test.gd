@@ -1,6 +1,6 @@
 extends SceneTree
 
-const EnvJsonModule = preload("res://src/env_json_module.gd")
+const EnvJsonModule = preload("res://addon/src/env_json_module.gd")
 
 var _http_callback_called: bool = false
 var _http_result: EnvJsonModule.LoadResult = null
