@@ -10,7 +10,7 @@ This addon is intentionally focused on configuration value loading/parsing only.
 `gdpm install @aviorstudio/gd-env`
 
 ### Manual
-Copy this directory into `addons/@aviorstudio_gd-env/` and enable the plugin.
+Copy `addon/` into `addons/@aviorstudio_gd-env/` and enable the plugin.
 
 ## Quick Start
 
