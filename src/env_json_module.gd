@@ -126,7 +126,12 @@ static func normalize_string_keys(raw: Dictionary) -> Dictionary[String, Variant
 static func merge(base: Dictionary[String, Variant], overrides: Dictionary[String, Variant]) -> Dictionary[String, Variant]:
 	var out: Dictionary[String, Variant] = base.duplicate(true)
 	for key: String in overrides:
-		out[key] = overrides[key]
+		var override_value: Variant = overrides[key]
+		var base_value: Variant = out.get(key)
+		if base_value is Dictionary and override_value is Dictionary:
+			out[key] = merge(normalize_string_keys(base_value), normalize_string_keys(override_value))
+		else:
+			out[key] = override_value
 	return out
 
 ## Adds a URL query parameter with URI-encoded value.
