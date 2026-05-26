@@ -6,9 +6,9 @@ Use this addon when you want typed access to OS environment variables, `.env` fi
 
 ## Installation
 
-### Via gdpm
+### Via gdam
 
-`gdpm install @aviorstudio/gd-env`
+`gdam install @aviorstudio/gd-env`
 
 ### Manual
 
