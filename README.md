@@ -39,9 +39,28 @@ var api_url: String = str(dotenv.get("API_URL", "http://localhost:3000"))
 - Treat client-side config as public. Do not ship secrets in exported games.
 - Use game code to decide which config source wins when multiple sources are available.
 
+## Repository Layout
+
+- `addon/`: Godot plugin source packaged for GDAM and manual installation.
+- `addon/plugin.cfg`: plugin name, version, description, and entry script.
+- `addon/src/`: reusable GDScript modules.
+- `tests/`: Godot test project/scripts for addon behavior.
+- `.github/workflows/ci.yml`: validates package shape and runs tests.
+- `.github/workflows/release.yml`: creates GitHub release ZIPs and publishes to GDAM.
+
+## Versioning And Releases
+
+The version in `addon/plugin.cfg` is the addon package version. Releases are created from `main` with the manual release workflow and plain semver tags like `v0.0.1`; the workflow verifies `plugin.cfg`, builds `@aviorstudio_gd-env.zip`, and publishes `@aviorstudio/gd-env` to GDAM.
+
 ## Testing
 
-`./tests/test.sh`
+Run locally with:
+
+```sh
+./tests/test.sh
+```
+
+CI runs the same test script when available.
 
 ## License
 
