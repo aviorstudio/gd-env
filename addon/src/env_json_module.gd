@@ -8,6 +8,8 @@ class LoadResult extends RefCounted:
 	var source: String
 	var status_code: int
 	var data: Dictionary[String, Variant]
+	## HTTPRequest.Result, or -1 when no HTTP completion occurred.
+	var request_result: int = -1
 	var error_message: String
 
 	func _init(
@@ -22,6 +24,25 @@ class LoadResult extends RefCounted:
 		self.status_code = status_code
 		self.data = data
 		self.error_message = error_message
+
+## Owns a wall-clock deadline without charging the frame before request start.
+## HTTPRequest's built-in Timer can consume a stale process step on startup.
+class DeadlineHttpRequest extends HTTPRequest:
+	var _deadline_usec: int = 0
+
+	func arm_deadline(timeout_s: float) -> void:
+		_deadline_usec = Time.get_ticks_usec() + int(timeout_s * 1000000.0) if timeout_s > 0.0 else 0
+		set_process(_deadline_usec > 0)
+
+	func disarm_deadline() -> void:
+		_deadline_usec = 0
+		set_process(false)
+
+	func _process(_delta: float) -> void:
+		if _deadline_usec > 0 and Time.get_ticks_usec() >= _deadline_usec:
+			disarm_deadline()
+			cancel_request()
+			request_completed.emit(HTTPRequest.RESULT_TIMEOUT, 0, PackedStringArray(), PackedByteArray())
 
 ## Loads the first existing file path from the provided candidate list.
 static func load_dict_from_first_existing(paths: PackedStringArray) -> LoadResult:
@@ -66,9 +87,15 @@ static func load_dict_from_http(
 		callback.call(LoadResult.new(false, url, 0, {}, "empty_url"))
 		return
 
-	var request_node := HTTPRequest.new()
-	request_node.use_threads = not OS.has_feature("web")
-	request_node.timeout = timeout_s
+	if not is_finite(timeout_s) or timeout_s < 0.0:
+		callback.call(LoadResult.new(false, url, 0, {}, "invalid_timeout"))
+		return
+
+	var request_node := DeadlineHttpRequest.new()
+	# Native threaded HTTP uses blocking reads; cancellation can wait on the peer.
+	# Configuration requests use nonblocking polling on every platform.
+	request_node.use_threads = false
+	request_node.timeout = 0.0
 	owner.add_child(request_node)
 
 	var final_url: String = _resolve_web_relative_url(url)
@@ -76,7 +103,9 @@ static func load_dict_from_http(
 		final_url = _with_query_param(final_url, cache_bust_key, str(Time.get_unix_time_from_system()))
 
 	var handler: Callable = func(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+		request_node.disarm_deadline()
 		var out := LoadResult.new(false, final_url, response_code, {}, "")
+		out.request_result = result
 
 		if result != HTTPRequest.RESULT_SUCCESS:
 			out.error_message = "request_failed"
@@ -87,15 +116,19 @@ static func load_dict_from_http(
 			out = parse_json_dict(body_text)
 			out.source = final_url
 			out.status_code = response_code
+			out.request_result = result
 
+		request_node.queue_free()
 		if callback.is_valid():
 			callback.call(out)
-		request_node.queue_free()
 
-	request_node.request_completed.connect(handler)
+	request_node.request_completed.connect(handler, CONNECT_ONE_SHOT)
+	request_node.arm_deadline(timeout_s)
 
 	var err: int = request_node.request(final_url, PackedStringArray(), HTTPClient.METHOD_GET)
 	if err != OK:
+		request_node.request_completed.disconnect(handler)
+		request_node.disarm_deadline()
 		request_node.queue_free()
 		callback.call(LoadResult.new(false, final_url, 0, {}, "request_error_" + str(err)))
 
