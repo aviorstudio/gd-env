@@ -99,6 +99,7 @@ func _run() -> void:
 	fixture.queue_free()
 	await process_frame
 	if failures.is_empty():
+		print("REACHED gd-env http_deadline_test assertions=1")
 		print("PASS gd-env http_deadline_test")
 		quit(0)
 	else:
