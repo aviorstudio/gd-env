@@ -8,6 +8,14 @@ on:
         required: true
         type: choice
         options: [patch, minor, major]
+      retry-tag:
+        description: Existing exact tag to republish without rebuilding (normally empty)
+        required: false
+        type: string
+      retry-sha256:
+        description: Required existing release asset SHA-256 when retry-tag is set
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -21,6 +29,8 @@ jobs:
     outputs:
       version: ${{ steps.release.outputs.version }}
       tag: ${{ steps.release.outputs.tag }}
+      retry: ${{ steps.release.outputs.retry }}
+      target: ${{ steps.release.outputs.target }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -30,10 +40,26 @@ jobs:
         id: release
         env:
           BUMP: ${{ inputs.bump }}
+          RETRY_TAG: ${{ inputs['retry-tag'] }}
+          RETRY_SHA256: ${{ inputs['retry-sha256'] }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           git fetch --tags --force
+          if [ -n "$RETRY_TAG" ]; then
+            [[ "$RETRY_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+            [[ "$RETRY_SHA256" =~ ^[0-9a-f]{64}$ ]]
+            target="$(git rev-list -n 1 "$RETRY_TAG")"
+            test -n "$target"
+            version="${RETRY_TAG#v}"
+            plugin_version="$(sed -n -E 's/^version="([^"]+)"/\1/p' addon/plugin.cfg | head -n 1)"
+            test "$plugin_version" = "$version"
+            echo "version=$version" >>"$GITHUB_OUTPUT"
+            echo "tag=$RETRY_TAG" >>"$GITHUB_OUTPUT"
+            echo "retry=true" >>"$GITHUB_OUTPUT"
+            echo "target=$target" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
           latest="$(git tag --list 'v[0-9]*' | sed -E 's/^v//' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
           if [ -z "$latest" ]; then
             version=0.0.1
@@ -53,9 +79,31 @@ jobs:
           test "$plugin_version" = "$version"
           echo "version=$version" >>"$GITHUB_OUTPUT"
           echo "tag=$tag" >>"$GITHUB_OUTPUT"
+          echo "retry=false" >>"$GITHUB_OUTPUT"
+          echo "target=$GITHUB_SHA" >>"$GITHUB_OUTPUT"
 
       - name: Test exact release commit and package
+        if: steps.release.outputs.retry != 'true'
         uses: ./.github/actions/test
+
+      - name: Recover existing immutable release package
+        if: steps.release.outputs.retry == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          EXPECTED_SHA256: ${{ inputs['retry-sha256'] }}
+          TARGET: ${{ steps.release.outputs.target }}
+        run: |
+          set -euo pipefail
+          release_target="$(gh release view "$TAG" --json targetCommitish --jq .targetCommitish)"
+          test "$release_target" = "$TARGET"
+          mkdir -p dist
+          gh release download "$TAG" --pattern '@aviorstudio_gd-env.zip' --dir dist
+          printf '%s  %s\n' "$EXPECTED_SHA256" '@aviorstudio_gd-env.zip' >'dist/@aviorstudio_gd-env.zip.sha256'
+          ./scripts/verify_package_checksum.sh
+          api_digest="$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="@aviorstudio_gd-env.zip") | .digest')"
+          test "$api_digest" = "sha256:$EXPECTED_SHA256"
+          echo "REACHED gd-env release_recovery assertions=4"
 
       - name: Upload exact tested package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -86,10 +134,24 @@ jobs:
         run: ./scripts/verify_package_checksum.sh
 
       - name: Create GitHub Release
+        if: needs.test.outputs.retry != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.test.outputs.tag }}
         run: gh release create "$TAG" 'dist/@aviorstudio_gd-env.zip' --target "$GITHUB_SHA" --title "$TAG" --notes "Release $TAG"
+
+      - name: Verify existing GitHub Release
+        if: needs.test.outputs.retry == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.test.outputs.tag }}
+          TARGET: ${{ needs.test.outputs.target }}
+          EXPECTED_SHA256: ${{ inputs['retry-sha256'] }}
+        run: |
+          set -euo pipefail
+          test "$(gh release view "$TAG" --json targetCommitish --jq .targetCommitish)" = "$TARGET"
+          test "$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="@aviorstudio_gd-env.zip") | .digest')" = "sha256:$EXPECTED_SHA256"
+          echo "REACHED gd-env existing_release assertions=2"
 
       - name: Install checksum-verified GDAM v0.0.8
         id: install-gdam
