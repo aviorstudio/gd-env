@@ -11,6 +11,7 @@ case_name=$2
 timeout_seconds=$3
 log_file=$4
 godot=${GODOT_BIN:-godot}
+project_dir=${GODOT_PROJECT_DIR:-"$(cd "$(dirname "$test_script")/.." && pwd)"}
 
 if [ ! -f "$test_script" ]; then
     echo "FAIL: missing test script: $test_script" >&2
@@ -24,7 +25,7 @@ fi
 mkdir -p "$(dirname "$log_file")"
 set +e
 timeout --signal=TERM --kill-after=2 "$timeout_seconds" \
-    "$godot" --headless --path "$(cd "$(dirname "$test_script")/.." && pwd)" \
+    "$godot" --headless --path "$project_dir" \
     --script "$test_script" >"$log_file" 2>&1
 status=$?
 set -e

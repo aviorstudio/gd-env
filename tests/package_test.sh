@@ -149,7 +149,7 @@ run_editor() {
 run_editor "$WORK/enable.log" --script res://enable_plugin.gd
 grep -q '^GdEnv="\*' "$PROJECT/project.godot"
 run_editor "$WORK/restart-enabled.log" --quit-after 2
-"$ROOT_DIR/tests/run_godot_case.sh" "$PROJECT/smoke.gd" packaged_smoke 30 "$WORK/smoke.log"
+GODOT_PROJECT_DIR="$PROJECT" "$ROOT_DIR/tests/run_godot_case.sh" "$PROJECT/smoke.gd" packaged_smoke 30 "$WORK/smoke.log"
 
 run_editor "$WORK/disable.log" --script res://disable_plugin.gd
 run_editor "$WORK/restart-disabled.log" --quit-after 2
@@ -170,18 +170,22 @@ func _initialize() -> void:
 		if ResourceUID.has_id(uid):
 			configured_path = ResourceUID.get_id_path(uid)
 	if configured_path != "res://consumer/autoload.gd":
-		push_error("Consumer-owned autoload was replaced")
+		push_error("Consumer-owned autoload was replaced: %s" % configured_path)
 		quit(1)
 		return
 	print("REACHED gd-env consumer_autoload assertions=1")
 	print("PASS gd-env consumer_autoload")
 	quit(0)
 EOF
-perl -0pi -e 's/\[autoload\]\n/\[autoload\]\n\nGdEnv="*res:\/\/consumer\/autoload.gd"\n/' "$PROJECT/project.godot"
+if grep -Fqx '[autoload]' "$PROJECT/project.godot"; then
+    perl -0pi -e 's/\[autoload\]\n/\[autoload\]\n\nGdEnv="*res:\/\/consumer\/autoload.gd"\n/' "$PROJECT/project.godot"
+else
+    printf '\n[autoload]\n\nGdEnv="*res://consumer/autoload.gd"\n' >>"$PROJECT/project.godot"
+fi
 run_editor "$WORK/consumer-enable.log" --script res://enable_plugin.gd
 run_editor "$WORK/consumer-disable.log" --script res://disable_plugin.gd
 run_editor "$WORK/consumer-restart.log" --quit-after 2
-"$ROOT_DIR/tests/run_godot_case.sh" "$PROJECT/consumer_smoke.gd" consumer_autoload 30 "$WORK/consumer-smoke.log"
+GODOT_PROJECT_DIR="$PROJECT" "$ROOT_DIR/tests/run_godot_case.sh" "$PROJECT/consumer_smoke.gd" consumer_autoload 30 "$WORK/consumer-smoke.log"
 if grep -q '^plugin_owns_autoload=' "$PROJECT/project.godot"; then
     echo "FAIL: consumer-owned autoload acquired plugin ownership marker" >&2
     exit 1
