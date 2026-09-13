@@ -9,6 +9,7 @@ func _initialize() -> void:
 	_test_get_required_result(failures)
 
 	if failures.is_empty():
+		print("REACHED gd-env env_var_module_test assertions=1")
 		print("PASS gd-env env_var_module_test")
 		quit(0)
 		return

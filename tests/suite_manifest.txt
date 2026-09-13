@@ -1,0 +1,5 @@
+# Every shipped Godot behavior suite is explicit so deleting/renaming one fails.
+tests/dotenv_module_test.gd
+tests/env_json_module_test.gd
+tests/env_var_module_test.gd
+tests/http_deadline_test.gd

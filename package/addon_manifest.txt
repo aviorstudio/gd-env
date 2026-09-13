@@ -1,0 +1,11 @@
+autoload.gd
+autoload.gd.uid
+plugin.cfg
+plugin.gd
+plugin.gd.uid
+src/dotenv_module.gd
+src/dotenv_module.gd.uid
+src/env_json_module.gd
+src/env_json_module.gd.uid
+src/env_var_module.gd
+src/env_var_module.gd.uid
