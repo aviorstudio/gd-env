@@ -57,6 +57,17 @@ its response; native threaded blocking reads can otherwise stall cancellation.
 The loopback regression suite exercises those paths, time scale zero, successful
 completion, disabled deadlines and owner cleanup.
 
+HTTP configuration responses are limited to 1 MiB by default. Pass the optional
+final `max_body_bytes` argument to select a positive limit up to 16 MiB. The
+limit is assigned to Godot's `HTTPRequest.body_size_limit` before starting the
+request, so declared, chunked, and decompressed bodies are bounded during
+transfer rather than checked only after accumulation. `LoadResult.error_code`
+provides typed timeout, body-size, transport, HTTP-status, and JSON parse
+outcomes; `body_too_large` results retain no bytes beyond the selected cap.
+The 1 MiB default, 16 MiB ceiling, and existing 10-second default deadline were
+approved in the decision record on
+[fieldsofrevik#140](https://github.com/aviorstudio/fieldsofrevik/issues/140#issuecomment-5651934845).
+
 ## Repository Layout
 
 - `addon/`: Godot plugin source packaged for GDAM and manual installation.
@@ -78,7 +89,16 @@ Run locally with:
 ./tests/test.sh
 ```
 
-CI and releases run the same bounded script with a checksum-verified Godot 4.7.2 binary. Runtime errors and missing PASS markers fail the suite, including when the engine exits zero.
+**Correction — [fieldsofrevik#143](https://github.com/aviorstudio/fieldsofrevik/issues/143):**
+The earlier statement said CI and releases ran the same bounded script, but it
+did not establish that the assembled ZIP was the package exercised by editor
+lifecycle tests, and publication still used mutable action tags. CI and release
+now run the same behavior and exact-package lifecycle gates with checksum-
+verified Godot 4.7.2. Release transfers the tested ZIP and relative checksum to
+an isolated publication job without rebuilding it, pins executable actions by
+full commit SHA, and explicitly installs checksum-verified GDAM v0.0.8. Runtime
+errors and missing reachable PASS markers fail the suite even when Godot exits
+zero.
 
 ## License
 
