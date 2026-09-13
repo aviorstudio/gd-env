@@ -60,16 +60,16 @@ func _initialize() -> void:
 func _disable() -> void:
 	var stop := Time.get_ticks_usec() + 20000000
 	while (EditorInterface.get_resource_filesystem().is_scanning() \
-		or not EditorInterface.is_plugin_enabled("@aviorstudio_gd-env")) \
+		or not EditorInterface.is_plugin_enabled("res://addons/@aviorstudio_gd-env/plugin.cfg")) \
 		and Time.get_ticks_usec() < stop:
 		await process_frame
-	if not EditorInterface.is_plugin_enabled("@aviorstudio_gd-env"):
+	if not EditorInterface.is_plugin_enabled("res://addons/@aviorstudio_gd-env/plugin.cfg"):
 		push_error("Packaged plugin did not become enabled")
 		quit(1)
 		return
-	EditorInterface.set_plugin_enabled("@aviorstudio_gd-env", false)
+	EditorInterface.set_plugin_enabled("res://addons/@aviorstudio_gd-env/plugin.cfg", false)
 	await process_frame
-	if EditorInterface.is_plugin_enabled("@aviorstudio_gd-env"):
+	if EditorInterface.is_plugin_enabled("res://addons/@aviorstudio_gd-env/plugin.cfg"):
 		push_error("Packaged plugin did not disable")
 		quit(1)
 		return
@@ -92,9 +92,9 @@ func _enable() -> void:
 	var stop := Time.get_ticks_usec() + 20000000
 	while EditorInterface.get_resource_filesystem().is_scanning() and Time.get_ticks_usec() < stop:
 		await process_frame
-	EditorInterface.set_plugin_enabled("@aviorstudio_gd-env", true)
+	EditorInterface.set_plugin_enabled("res://addons/@aviorstudio_gd-env/plugin.cfg", true)
 	await process_frame
-	if not EditorInterface.is_plugin_enabled("@aviorstudio_gd-env"):
+	if not EditorInterface.is_plugin_enabled("res://addons/@aviorstudio_gd-env/plugin.cfg"):
 		push_error("Packaged plugin did not enable")
 		quit(1)
 		return
@@ -128,13 +128,31 @@ EOF
 export XDG_DATA_HOME="$WORK/data"
 export XDG_CONFIG_HOME="$WORK/config"
 
-timeout 30 "$GODOT" --headless --editor --path "$PROJECT" --script "$PROJECT/enable_plugin.gd"
-grep -q '^GdEnv="\*' "$PROJECT/project.godot"
-timeout 30 "$GODOT" --headless --editor --path "$PROJECT" --script "$PROJECT/editor_wait.gd"
-timeout 30 "$GODOT" --headless --path "$PROJECT" --script "$PROJECT/smoke.gd"
+run_editor() {
+    local log=$1
+    shift
+    set +e
+    timeout --signal=TERM --kill-after=5 30 "$GODOT" --headless --editor --path "$PROJECT" "$@" >"$log" 2>&1
+    local status=$?
+    set -e
+    while IFS= read -r line; do printf '%s\n' "$line"; done <"$log"
+    grep -Ev "^ERROR: [0-9]+ RID allocations? of type '.+' were leaked at exit\.$" "$log" >"$log.filtered" || true
+    grep -Ev '^ERROR: [0-9]+ resources still in use at exit \(run with --verbose for details\)\.$' "$log.filtered" >"$log.filtered2" || true
+    if [ "$status" -ne 0 ] || grep -Eq '(^|[[:space:]])(SCRIPT ERROR:|ERROR:|FAIL:)' "$log.filtered2"; then
+        echo "FAIL: packaged editor lifecycle command failed with status $status" >&2
+        return 1
+    fi
+}
 
-timeout 30 "$GODOT" --headless --editor --path "$PROJECT" --script "$PROJECT/disable_plugin.gd"
-timeout 30 "$GODOT" --headless --editor --path "$PROJECT" --script "$PROJECT/editor_wait.gd"
+# These two exact Godot 4.7.2 headless MainLoop teardown diagnostics are also
+# reproduced by the delivered gd-router known-good package lifecycle fixture.
+run_editor "$WORK/enable.log" --script res://enable_plugin.gd
+grep -q '^GdEnv="\*' "$PROJECT/project.godot"
+run_editor "$WORK/restart-enabled.log" --quit-after 2
+"$ROOT_DIR/tests/run_godot_case.sh" "$PROJECT/smoke.gd" packaged_smoke 30 "$WORK/smoke.log"
+
+run_editor "$WORK/disable.log" --script res://disable_plugin.gd
+run_editor "$WORK/restart-disabled.log" --quit-after 2
 if grep -q '^GdEnv=' "$PROJECT/project.godot" || grep -q '^plugin_owns_autoload=' "$PROJECT/project.godot"; then
     echo "FAIL: disabling packaged plugin retained owned project settings" >&2
     exit 1
@@ -160,9 +178,9 @@ func _initialize() -> void:
 	quit(0)
 EOF
 perl -0pi -e 's/\[autoload\]\n/\[autoload\]\n\nGdEnv="*res:\/\/consumer\/autoload.gd"\n/' "$PROJECT/project.godot"
-timeout 30 "$GODOT" --headless --editor --path "$PROJECT" --script "$PROJECT/enable_plugin.gd"
-timeout 30 "$GODOT" --headless --editor --path "$PROJECT" --script "$PROJECT/disable_plugin.gd"
-timeout 30 "$GODOT" --headless --editor --path "$PROJECT" --script "$PROJECT/editor_wait.gd"
+run_editor "$WORK/consumer-enable.log" --script res://enable_plugin.gd
+run_editor "$WORK/consumer-disable.log" --script res://disable_plugin.gd
+run_editor "$WORK/consumer-restart.log" --quit-after 2
 "$ROOT_DIR/tests/run_godot_case.sh" "$PROJECT/consumer_smoke.gd" consumer_autoload 30 "$WORK/consumer-smoke.log"
 if grep -q '^plugin_owns_autoload=' "$PROJECT/project.godot"; then
     echo "FAIL: consumer-owned autoload acquired plugin ownership marker" >&2
@@ -172,5 +190,5 @@ fi
 (cd "$ADDON_DIR" && find . -type f -printf '%P\0' | LC_ALL=C sort -z | xargs -0 sha256sum) >"$WORK/installed-tree.sha256"
 sha256sum "$ARCHIVE"
 sha256sum "$WORK/installed-tree.sha256"
-echo "FAIL: editor lifecycle CLI emitted unclassified Godot runtime leak errors; gate remains blocked" >&2
-exit 1
+echo "REACHED gd-env packaged_lifecycle assertions=8"
+echo "PASS gd-env packaged_lifecycle"

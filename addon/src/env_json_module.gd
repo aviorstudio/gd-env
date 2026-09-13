@@ -2,6 +2,24 @@
 class_name EnvJsonModule
 extends RefCounted
 
+const DEFAULT_MAX_BODY_BYTES := 1024 * 1024
+const MAX_CONFIGURABLE_BODY_BYTES := 16 * 1024 * 1024
+
+enum ErrorCode {
+	NONE,
+	MISSING_OWNER,
+	EMPTY_URL,
+	INVALID_TIMEOUT,
+	INVALID_MAX_BODY_BYTES,
+	REQUEST_START_FAILED,
+	REQUEST_FAILED,
+	TIMEOUT,
+	BODY_TOO_LARGE,
+	HTTP_STATUS,
+	JSON_PARSE,
+	EXPECTED_DICTIONARY,
+}
+
 ## Standardized JSON load result payload.
 class LoadResult extends RefCounted:
 	var success: bool
@@ -11,19 +29,24 @@ class LoadResult extends RefCounted:
 	## HTTPRequest.Result, or -1 when no HTTP completion occurred.
 	var request_result: int = -1
 	var error_message: String
+	var error_code: ErrorCode = ErrorCode.NONE
+	var received_bytes: int = -1
+	var declared_bytes: int = -1
 
 	func _init(
 		success: bool = false,
 		source: String = "",
 		status_code: int = 0,
 		data: Dictionary[String, Variant] = {},
-		error_message: String = ""
+		error_message: String = "",
+		error_code: ErrorCode = ErrorCode.NONE
 	) -> void:
 		self.success = success
 		self.source = source
 		self.status_code = status_code
 		self.data = data
 		self.error_message = error_message
+		self.error_code = error_code
 
 ## Owns a wall-clock deadline without charging the frame before request start.
 ## HTTPRequest's built-in Timer can consume a stale process step on startup.
@@ -76,19 +99,23 @@ static func load_dict_from_http(
 	callback: Callable,
 	timeout_s: float = 10.0,
 	cache_bust: bool = true,
-	cache_bust_key: String = "v"
+	cache_bust_key: String = "v",
+	max_body_bytes: int = DEFAULT_MAX_BODY_BYTES
 ) -> void:
 	if not callback.is_valid():
 		return
 	if not owner:
-		callback.call(LoadResult.new(false, url, 0, {}, "missing_owner"))
+		callback.call(LoadResult.new(false, url, 0, {}, "missing_owner", ErrorCode.MISSING_OWNER))
 		return
 	if url.is_empty():
-		callback.call(LoadResult.new(false, url, 0, {}, "empty_url"))
+		callback.call(LoadResult.new(false, url, 0, {}, "empty_url", ErrorCode.EMPTY_URL))
 		return
 
 	if not is_finite(timeout_s) or timeout_s < 0.0:
-		callback.call(LoadResult.new(false, url, 0, {}, "invalid_timeout"))
+		callback.call(LoadResult.new(false, url, 0, {}, "invalid_timeout", ErrorCode.INVALID_TIMEOUT))
+		return
+	if max_body_bytes <= 0 or max_body_bytes > MAX_CONFIGURABLE_BODY_BYTES:
+		callback.call(LoadResult.new(false, url, 0, {}, "invalid_max_body_bytes", ErrorCode.INVALID_MAX_BODY_BYTES))
 		return
 
 	var request_node := DeadlineHttpRequest.new()
@@ -96,20 +123,31 @@ static func load_dict_from_http(
 	# Configuration requests use nonblocking polling on every platform.
 	request_node.use_threads = false
 	request_node.timeout = 0.0
+	request_node.body_size_limit = max_body_bytes
 	owner.add_child(request_node)
 
 	var final_url: String = _resolve_web_relative_url(url)
 	if cache_bust:
 		final_url = _with_query_param(final_url, cache_bust_key, str(Time.get_unix_time_from_system()))
 
-	var handler: Callable = func(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	var handler: Callable = func(result: int, response_code: int, headers: PackedStringArray, body: PackedByteArray) -> void:
 		request_node.disarm_deadline()
 		var out := LoadResult.new(false, final_url, response_code, {}, "")
 		out.request_result = result
+		out.received_bytes = body.size()
+		out.declared_bytes = _content_length(headers)
 
-		if result != HTTPRequest.RESULT_SUCCESS:
+		if result == HTTPRequest.RESULT_BODY_SIZE_LIMIT_EXCEEDED:
+			out.error_code = ErrorCode.BODY_TOO_LARGE
+			out.error_message = "body_too_large"
+		elif result == HTTPRequest.RESULT_TIMEOUT:
+			out.error_code = ErrorCode.TIMEOUT
+			out.error_message = "request_failed"
+		elif result != HTTPRequest.RESULT_SUCCESS:
+			out.error_code = ErrorCode.REQUEST_FAILED
 			out.error_message = "request_failed"
 		elif response_code < 200 or response_code >= 300:
+			out.error_code = ErrorCode.HTTP_STATUS
 			out.error_message = "http_" + str(response_code)
 		else:
 			var body_text: String = body.get_string_from_utf8()
@@ -130,20 +168,28 @@ static func load_dict_from_http(
 		request_node.request_completed.disconnect(handler)
 		request_node.disarm_deadline()
 		request_node.queue_free()
-		callback.call(LoadResult.new(false, final_url, 0, {}, "request_error_" + str(err)))
+		callback.call(LoadResult.new(false, final_url, 0, {}, "request_error_" + str(err), ErrorCode.REQUEST_START_FAILED))
 
 ## Parses raw JSON text into a typed dictionary load result.
 static func parse_json_dict(json_text: String) -> LoadResult:
 	var json := JSON.new()
 	var parse_result: int = json.parse(json_text)
 	if parse_result != OK:
-		return LoadResult.new(false, "", 0, {}, "parse_error: " + json.get_error_message())
+		return LoadResult.new(false, "", 0, {}, "parse_error: " + json.get_error_message(), ErrorCode.JSON_PARSE)
 
 	var payload: Variant = json.data
 	if not (payload is Dictionary):
-		return LoadResult.new(false, "", 0, {}, "parse_error: expected_dictionary")
+		return LoadResult.new(false, "", 0, {}, "parse_error: expected_dictionary", ErrorCode.EXPECTED_DICTIONARY)
 
 	return LoadResult.new(true, "", 0, normalize_string_keys(payload), "")
+
+static func _content_length(headers: PackedStringArray) -> int:
+	for header: String in headers:
+		if header.to_lower().begins_with("content-length:"):
+			var value := header.get_slice(":", 1).strip_edges()
+			if value.is_valid_int():
+				return value.to_int()
+	return -1
 
 ## Converts dictionary keys to strings for stable typed access.
 static func normalize_string_keys(raw: Dictionary) -> Dictionary[String, Variant]:
