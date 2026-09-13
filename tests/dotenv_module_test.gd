@@ -8,6 +8,7 @@ func _initialize() -> void:
 	_test_load_file_reads_env_data(failures)
 
 	if failures.is_empty():
+		print("REACHED gd-env dotenv_module_test assertions=1")
 		print("PASS gd-env dotenv_module_test")
 		quit(0)
 		return

@@ -13,6 +13,7 @@ func _initialize() -> void:
 	_test_load_dict_from_http_missing_owner(failures)
 
 	if failures.is_empty():
+		print("REACHED gd-env env_json_module_test assertions=1")
 		print("PASS gd-env env_json_module_test")
 		quit(0)
 		return

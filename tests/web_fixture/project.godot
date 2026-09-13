@@ -1,0 +1,12 @@
+config_version=5
+
+[application]
+config/name="gd-env web HTTP acceptance"
+run/main_scene="res://main.tscn"
+
+[display]
+window/size/viewport_width=900
+window/size/viewport_height=500
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
