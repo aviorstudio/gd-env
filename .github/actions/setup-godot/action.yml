@@ -37,6 +37,7 @@ runs:
           unzip -q -o "$archive" -d "$install_dir"
           chmod +x "$binary"
         fi
+        ln -sf "$binary" "$install_dir/godot"
         echo "$install_dir" >> "$GITHUB_PATH"
 
     - name: Verify Godot installation
