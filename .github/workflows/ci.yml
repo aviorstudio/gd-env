@@ -39,3 +39,12 @@ jobs:
 
       - name: Test
         uses: ./.github/actions/test
+
+      - name: Upload exact tested package evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tested-package-${{ github.sha }}
+          path: |
+            dist/@aviorstudio_gd-env.zip
+            dist/@aviorstudio_gd-env.zip.sha256
+          if-no-files-found: error

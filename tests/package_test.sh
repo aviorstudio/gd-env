@@ -13,13 +13,48 @@ else
 fi
 
 test -f "$ARCHIVE"
-unzip -Z1 "$ARCHIVE" | LC_ALL=C sort >"$WORK/archive-manifest.txt"
-LC_ALL=C sort "$EXPECTED" >"$WORK/expected-manifest.txt"
-diff -u "$WORK/expected-manifest.txt" "$WORK/archive-manifest.txt"
-if zipinfo -l "$ARCHIVE" | grep -Eq '^l'; then
-    echo "FAIL: release ZIP contains a symlink" >&2
+"$ROOT_DIR/scripts/verify_package_checksum.sh" "$(dirname "$ARCHIVE")"
+
+checksum_control="$WORK/checksum-control"
+mkdir -p "$checksum_control"
+cp "$ARCHIVE" "$checksum_control/@aviorstudio_gd-env.zip"
+printf '%064d  @aviorstudio_gd-env.zip\n' 0 >"$checksum_control/@aviorstudio_gd-env.zip.sha256"
+if "$ROOT_DIR/scripts/verify_package_checksum.sh" "$checksum_control" >/dev/null 2>&1; then
+    echo "FAIL: checksum gate accepted a mutated identity" >&2
     exit 1
 fi
+echo "CONTROL_REJECTED gd-env package_checksum"
+cp "$(dirname "$ARCHIVE")/@aviorstudio_gd-env.zip.sha256" "$checksum_control/"
+"$ROOT_DIR/scripts/verify_package_checksum.sh" "$checksum_control"
+
+python3 - "$ARCHIVE" "$WORK/traversal.zip" "$WORK/symlink.zip" <<'PY'
+import stat
+import sys
+import zipfile
+
+source, traversal, symlink = sys.argv[1:]
+with zipfile.ZipFile(source) as src:
+    entries = [(item, src.read(item.filename)) for item in src.infolist()]
+with zipfile.ZipFile(traversal, "w") as out:
+    for item, data in entries:
+        out.writestr(item, data)
+    out.writestr("../escape.gd", b"extends Node\n")
+with zipfile.ZipFile(symlink, "w") as out:
+    for index, (item, data) in enumerate(entries):
+        if index == 0:
+            item.create_system = 3
+            item.external_attr = (stat.S_IFLNK | 0o777) << 16
+            data = b"plugin.gd"
+        out.writestr(item, data)
+PY
+for control in traversal symlink; do
+    if "$ROOT_DIR/scripts/verify_package_archive.sh" "$WORK/$control.zip" "$EXPECTED" >/dev/null 2>&1; then
+        echo "FAIL: package archive gate accepted $control control" >&2
+        exit 1
+    fi
+    echo "CONTROL_REJECTED gd-env package_$control"
+done
+"$ROOT_DIR/scripts/verify_package_archive.sh" "$ARCHIVE" "$EXPECTED"
 
 PROJECT="$WORK/project"
 ADDON_DIR="$PROJECT/addons/@aviorstudio_gd-env"
