@@ -57,6 +57,17 @@ its response; native threaded blocking reads can otherwise stall cancellation.
 The loopback regression suite exercises those paths, time scale zero, successful
 completion, disabled deadlines and owner cleanup.
 
+HTTP configuration responses are limited to 1 MiB by default. Pass the optional
+final `max_body_bytes` argument to select a positive limit up to 16 MiB. The
+limit is assigned to Godot's `HTTPRequest.body_size_limit` before starting the
+request, so declared, chunked, and decompressed bodies are bounded during
+transfer rather than checked only after accumulation. `LoadResult.error_code`
+provides typed timeout, body-size, transport, HTTP-status, and JSON parse
+outcomes; `body_too_large` results retain no bytes beyond the selected cap.
+The 1 MiB default, 16 MiB ceiling, and existing 10-second default deadline were
+approved in the decision record on
+[fieldsofrevik#140](https://github.com/aviorstudio/fieldsofrevik/issues/140#issuecomment-5651934845).
+
 ## Repository Layout
 
 - `addon/`: Godot plugin source packaged for GDAM and manual installation.
