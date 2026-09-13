@@ -42,4 +42,5 @@ if ! diff -u "$expected" "$actual"; then
 fi
 
 (cd "$STAGE" && zip -X -q "$ARCHIVE" -@ <"$MANIFEST")
-sha256sum "$ARCHIVE" | tee "$ARCHIVE.sha256"
+(cd "$DIST_DIR" && sha256sum '@aviorstudio_gd-env.zip' >'@aviorstudio_gd-env.zip.sha256')
+(cd "$DIST_DIR" && sha256sum --check --strict '@aviorstudio_gd-env.zip.sha256')

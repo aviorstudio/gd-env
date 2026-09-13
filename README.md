@@ -89,7 +89,16 @@ Run locally with:
 ./tests/test.sh
 ```
 
-CI and releases run the same bounded script with a checksum-verified Godot 4.7.2 binary. Runtime errors and missing PASS markers fail the suite, including when the engine exits zero.
+**Correction — [fieldsofrevik#143](https://github.com/aviorstudio/fieldsofrevik/issues/143):**
+The earlier statement said CI and releases ran the same bounded script, but it
+did not establish that the assembled ZIP was the package exercised by editor
+lifecycle tests, and publication still used mutable action tags. CI and release
+now run the same behavior and exact-package lifecycle gates with checksum-
+verified Godot 4.7.2. Release transfers the tested ZIP and relative checksum to
+an isolated publication job without rebuilding it, pins executable actions by
+full commit SHA, and explicitly installs checksum-verified GDAM v0.0.8. Runtime
+errors and missing reachable PASS markers fail the suite even when Godot exits
+zero.
 
 ## License
 
