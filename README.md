@@ -1,3 +1,5 @@
+<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 4db194359be8bf14b2997b90cec8ebeb78c8d5b88873a4e498f085da2a3af855 -->
+
 # gd-env
 
 Load environment and configuration values in Godot 4.
@@ -64,42 +66,9 @@ request, so declared, chunked, and decompressed bodies are bounded during
 transfer rather than checked only after accumulation. `LoadResult.error_code`
 provides typed timeout, body-size, transport, HTTP-status, and JSON parse
 outcomes; `body_too_large` results retain no bytes beyond the selected cap.
-The 1 MiB default, 16 MiB ceiling, and existing 10-second default deadline were
-approved in the decision record on
-[fieldsofrevik#140](https://github.com/aviorstudio/fieldsofrevik/issues/140#issuecomment-5651934845).
+The default body limit is 1 MiB, the ceiling is 16 MiB, and the default deadline is 10 seconds.
 
-## Repository Layout
-
-- `addon/`: Godot plugin source packaged for GDAM and manual installation.
-- `addon/plugin.cfg`: plugin name, version, description, and entry script.
-- `addon/src/`: reusable GDScript modules.
-- `tests/`: Godot test project/scripts for addon behavior.
-- `.github/workflows/ci.yml`: validates package shape and runs tests.
-- `.github/workflows/release.yml`: creates GitHub release ZIPs and publishes to GDAM.
-
-## Versioning And Releases
-
-The version in `addon/plugin.cfg` is the addon package version. Releases are created from `main` with the manual release workflow and plain semver tags like `v0.0.1`; the workflow verifies `plugin.cfg`, builds `@aviorstudio_gd-env.zip`, and publishes `@aviorstudio/gd-env` to GDAM.
-
-## Testing
-
-Run locally with:
-
-```sh
-./tests/test.sh
-```
-
-**Correction — [fieldsofrevik#143](https://github.com/aviorstudio/fieldsofrevik/issues/143):**
-The earlier statement said CI and releases ran the same bounded script, but it
-did not establish that the assembled ZIP was the package exercised by editor
-lifecycle tests, and publication still used mutable action tags. CI and release
-now run the same behavior and exact-package lifecycle gates with checksum-
-verified Godot 4.7.2. Release transfers the tested ZIP and relative checksum to
-an isolated publication job without rebuilding it, pins executable actions by
-full commit SHA, and explicitly installs checksum-verified GDAM v0.0.8. Runtime
-errors and missing reachable PASS markers fail the suite even when Godot exits
-zero.
 
 ## License
 
-MIT
+See `LICENSE`.
