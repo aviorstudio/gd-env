@@ -72,3 +72,7 @@ The default body limit is 1 MiB, the ceiling is 16 MiB, and the default deadline
 ## License
 
 See `LICENSE`.
+
+## Development commands
+
+Run `make install` to install the pinned tools and checksum-verified Godot binary and web export templates. `make check` runs manifest validation, release packaging, behavioral tests, package checks and the packaged web export. `make lint`, `make build`, `make test` and `make artifact-smoke` select the existing gates. `make clean` removes generated artifacts. Development and stop commands are unsupported because the addon requires a consuming Godot project.

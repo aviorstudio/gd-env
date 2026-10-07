@@ -54,10 +54,12 @@ jobs:
             version="${RETRY_TAG#v}"
             plugin_version="$(sed -n -E 's/^version="([^"]+)"/\1/p' addon/plugin.cfg | head -n 1)"
             test "$plugin_version" = "$version"
-            echo "version=$version" >>"$GITHUB_OUTPUT"
-            echo "tag=$RETRY_TAG" >>"$GITHUB_OUTPUT"
-            echo "retry=true" >>"$GITHUB_OUTPUT"
-            echo "target=$target" >>"$GITHUB_OUTPUT"
+            {
+              echo "version=$version"
+              echo "tag=$RETRY_TAG"
+              echo "retry=true"
+              echo "target=$target"
+            } >>"$GITHUB_OUTPUT"
             exit 0
           fi
           latest="$(git tag --list 'v[0-9]*' | sed -E 's/^v//' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
@@ -74,13 +76,18 @@ jobs:
             version="$major.$minor.$patch"
           fi
           tag="v$version"
-          ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "Refusing duplicate release tag: $tag" >&2
+            exit 1
+          fi
           plugin_version="$(sed -n -E 's/^version="([^"]+)"/\1/p' addon/plugin.cfg | head -n 1)"
           test "$plugin_version" = "$version"
-          echo "version=$version" >>"$GITHUB_OUTPUT"
-          echo "tag=$tag" >>"$GITHUB_OUTPUT"
-          echo "retry=false" >>"$GITHUB_OUTPUT"
-          echo "target=$GITHUB_SHA" >>"$GITHUB_OUTPUT"
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "retry=false"
+            echo "target=$GITHUB_SHA"
+          } >>"$GITHUB_OUTPUT"
 
       - name: Test exact release commit and package
         if: steps.release.outputs.retry != 'true'
