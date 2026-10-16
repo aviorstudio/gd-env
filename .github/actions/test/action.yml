@@ -26,7 +26,7 @@ runs:
       shell: bash
       run: make lint
 
-    - name: Install verified Godot test binary
+    - name: "Set up Godot"
       uses: ./.github/actions/setup-godot
       with:
         godot-version: '4.7.2'
