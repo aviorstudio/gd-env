@@ -1,4 +1,4 @@
-<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 4db194359be8bf14b2997b90cec8ebeb78c8d5b88873a4e498f085da2a3af855 -->
+<!-- Generated from private documentation source. Do not edit directly. Source SHA256: bf73e8c49d9ec6d41692b284088c05f4cacbf6a7a38dc0460e69e1a5f745c51f -->
 
 # gd-env
 
@@ -73,6 +73,14 @@ The default body limit is 1 MiB, the ceiling is 16 MiB, and the default deadline
 
 See `LICENSE`.
 
-## Development commands
+## Repository development
 
-Run `make install` to install the pinned tools and checksum-verified Godot binary and web export templates. `make check` runs manifest validation, release packaging, behavioral tests, package checks and the packaged web export. `make lint`, `make build`, `make test` and `make artifact-smoke` select the existing gates. `make clean` removes generated artifacts. Development and stop commands are unsupported because the addon requires a consuming Godot project.
+Install the [Komizo release](https://github.com/nicodes/komizo#install) matching `komizo.lock`.
+
+```sh
+komizo check                 # Source, runtime, package and installed-addon checks
+komizo run test              # Focused addon test suite
+komizo run artifact-check    # Verify the built package
+```
+
+The addon recipe supplies the verified Godot engine and templates in checkout-owned tool/data directories. Interactive use belongs to a consuming Godot project.
