@@ -1,4 +1,4 @@
-<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 4db194359be8bf14b2997b90cec8ebeb78c8d5b88873a4e498f085da2a3af855 -->
+<!-- Generated from private documentation source. Do not edit directly. Source SHA256: e44778c2473870b2a3e221bfdb289c8f5068cd6b0ba6fed999f17f607b082ba9 -->
 
 # gd-env
 
@@ -72,3 +72,16 @@ The default body limit is 1 MiB, the ceiling is 16 MiB, and the default deadline
 ## License
 
 See `LICENSE`.
+
+## Contributor checks
+
+Install [mise](https://mise.jdx.dev/), then prepare the pinned development helpers and run the complete native gate:
+
+```sh
+git clone https://github.com/nicodes/tools.git .ci-tools
+git -C .ci-tools checkout --detach f7e243524ce2aa29f299e4c79db33001f72f4a30
+mise install
+mise run check
+```
+
+`mise.toml` owns tool versions and tasks. Engine and template downloads are checksum verified. `mise run build` packages the addon; `mise run test` runs its declared tests. The complete check also validates the installed artifact. Build and test receipts stay in `.artifacts/verification`.

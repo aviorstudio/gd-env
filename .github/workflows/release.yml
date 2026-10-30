@@ -36,8 +36,8 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         fetch-depth: 0
-    - name: Set up locked komizo
-      uses: nicodes/komizo/setup@2ca94e2fd4bb05f41bb228e9c366e5cc733c75e6
+    - name: Set up development tools
+      uses: nicodes/tools/setup@f7e243524ce2aa29f299e4c79db33001f72f4a30
       env:
         GH_TOKEN: ${{ github.token }}
       timeout-minutes: 5
@@ -47,7 +47,7 @@ jobs:
         BUMP: ${{ inputs.bump }}
         RETRY_TAG: ${{ inputs['retry-tag'] }}
         RETRY_SHA256: ${{ inputs['retry-sha256'] }}
-      run: |
+      run: |-
         set -euo pipefail
         test "$GITHUB_REF" = refs/heads/main
         git fetch --tags --force
@@ -95,9 +95,10 @@ jobs:
         } >>"$GITHUB_OUTPUT"
     - name: Check project
       if: steps.release.outputs.retry != 'true'
-      uses: nicodes/komizo/run@2ca94e2fd4bb05f41bb228e9c366e5cc733c75e6
-      with:
-        target: check
+      shell: bash
+      run: |-
+        set -euo pipefail
+        mise run check
     - name: Recover existing immutable release package
       if: steps.release.outputs.retry == 'true'
       env:
@@ -105,7 +106,7 @@ jobs:
         TAG: ${{ steps.release.outputs.tag }}
         EXPECTED_SHA256: ${{ inputs['retry-sha256'] }}
         TARGET: ${{ steps.release.outputs.target }}
-      run: |
+      run: |-
         set -euo pipefail
         release_target="$(gh release view "$TAG" --json targetCommitish --jq .targetCommitish)"
         test "$release_target" = "$TARGET"
@@ -152,7 +153,8 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         TAG: ${{ needs.test.outputs.tag }}
-      run: gh release create "$TAG" 'dist/@aviorstudio_gd-env.zip' --target "$GITHUB_SHA" --title "$TAG" --notes "Release $TAG"
+      run: gh release create "$TAG" 'dist/@aviorstudio_gd-env.zip' --target "$GITHUB_SHA" --title "$TAG" --notes "Release
+        $TAG"
     - name: Verify existing GitHub Release
       if: needs.test.outputs.retry == 'true'
       env:
@@ -160,7 +162,7 @@ jobs:
         TAG: ${{ needs.test.outputs.tag }}
         TARGET: ${{ needs.test.outputs.target }}
         EXPECTED_SHA256: ${{ inputs['retry-sha256'] }}
-      run: |
+      run: |-
         set -euo pipefail
         test "$(gh release view "$TAG" --json targetCommitish --jq .targetCommitish)" = "$TARGET"
         test "$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name=="@aviorstudio_gd-env.zip") | .digest')" = "sha256:$EXPECTED_SHA256"
