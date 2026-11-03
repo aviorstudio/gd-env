@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 GODOT=${GODOT_BIN:-godot}
 ARCHIVE=${1:-"$ROOT_DIR/dist/@aviorstudio_gd-env.zip"}
-EXPECTED="$ROOT_DIR/package/addon_manifest.txt"
+EXPECTED="$ROOT_DIR/scripts/package/addon_manifest.txt"
 WORK=$(mktemp -d)
 if [ "${KEEP_TEST_WORK:-0}" = "1" ]; then
     echo "Package test workspace: $WORK"

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-MANIFEST="$ROOT_DIR/package/addon_manifest.txt"
+MANIFEST="$ROOT_DIR/scripts/package/addon_manifest.txt"
 DIST_DIR=${1:-"$ROOT_DIR/dist"}
 ARCHIVE="$DIST_DIR/@aviorstudio_gd-env.zip"
 STAGE=$(mktemp -d)
