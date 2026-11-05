@@ -1,0 +1,45 @@
+version = 1
+recipe = "godot-addon"
+
+[package]
+source = "addon"
+manifest = "package.files"
+archive = "dist/@aviorstudio_gd-env.zip"
+script_uids = true
+
+[lint]
+required_paths = ["addon/plugin.cfg", "package.files"]
+
+[format]
+paths = ["addon/autoload.gd", "addon/plugin.gd", "addon/src/dotenv_module.gd", "addon/src/env_json_module.gd", "addon/src/env_var_module.gd", "tests/dotenv_module_test.gd", "tests/env_json_module_test.gd", "tests/env_var_module_test.gd", "tests/http_deadline_test.gd", "tests/web_fixture/main.gd"]
+
+[clean]
+paths = ["dist", ".artifacts/build", ".artifacts/godot", ".artifacts/godot-data", ".artifacts/tmp", ".godot"]
+
+[[components.fixture_exports]]
+project = "tests/web_fixture"
+preset = "Web"
+output = "dist/web/index.html"
+timeout = 120
+required_outputs = ["index.html", "index.wasm"]
+install_archive = "addons/@aviorstudio_gd-env"
+
+[[tests.unit]]
+runner = "bash"
+path = "tests/test.sh"
+timeout = 300
+
+[[tests.integration]]
+runner = "bash"
+path = "tests/package_test.sh"
+timeout = 300
+
+[publication]
+retry = true
+validation_timeout = 20
+publish_timeout = 10
+tag_prefix = "v"
+initial = "first"
+
+[ci]
+timeout_minutes = 30

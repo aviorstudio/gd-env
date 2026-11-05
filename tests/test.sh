@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 MANIFEST="$SCRIPT_DIR/suite_manifest.txt"
-RUN_CASE="$SCRIPT_DIR/run_godot_case.sh"
+
 FAILURES=0
 LOG_DIR=$(mktemp -d)
 trap 'rm -rf "$LOG_DIR"' EXIT
@@ -27,9 +27,13 @@ for relative_test in "${tests[@]}"; do
     test_path="$ROOT_DIR/$relative_test"
     case_name=$(basename "$relative_test" .gd)
     echo "Running $relative_test..."
-    if ! "$RUN_CASE" "$test_path" "$case_name" 30 "$LOG_DIR/$case_name.log"; then
+    if ! python3 "${TOOLS_ROOT:?Run make setup}/helpers/godot-test.py" \
+        --project "$ROOT_DIR" --program "$test_path" --timeout 30 \
+        --sentinel "PASS gd-env $case_name" \
+        --assertions-regex "^REACHED gd-env ${case_name} assertions=([1-9][0-9]*)$" >"$LOG_DIR/$case_name.log" 2>&1; then
         FAILURES=$((FAILURES + 1))
     fi
+    cat "$LOG_DIR/$case_name.log"
 done
 
 if ! "$SCRIPT_DIR/gate/test_gate.sh" "$LOG_DIR/gate"; then
