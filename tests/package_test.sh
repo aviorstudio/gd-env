@@ -4,7 +4,10 @@ set -euo pipefail
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 GODOT=${GODOT_BIN:-godot}
 ARCHIVE=${1:-"$ROOT_DIR/dist/@aviorstudio_gd-env.zip"}
-EXPECTED="$ROOT_DIR/scripts/package/addon_manifest.txt"
+EXPECTED="$ROOT_DIR/package.files"
+PACKAGE_HELPER="${TOOLS_ROOT:?Run make setup}/helpers/addon-package.py"
+verify_checksum() { python3 "$PACKAGE_HELPER" checksum --archive "$1/@aviorstudio_gd-env.zip"; }
+verify_archive() { python3 "$PACKAGE_HELPER" verify --archive "$1" --manifest "$2"; }
 WORK=$(mktemp -d)
 if [ "${KEEP_TEST_WORK:-0}" = "1" ]; then
     echo "Package test workspace: $WORK"
@@ -13,19 +16,19 @@ else
 fi
 
 test -f "$ARCHIVE"
-"$ROOT_DIR/scripts/verify_package_checksum.sh" "$(dirname "$ARCHIVE")"
+verify_checksum "$(dirname "$ARCHIVE")"
 
 checksum_control="$WORK/checksum-control"
 mkdir -p "$checksum_control"
 cp "$ARCHIVE" "$checksum_control/@aviorstudio_gd-env.zip"
 printf '%064d  @aviorstudio_gd-env.zip\n' 0 >"$checksum_control/@aviorstudio_gd-env.zip.sha256"
-if "$ROOT_DIR/scripts/verify_package_checksum.sh" "$checksum_control" >/dev/null 2>&1; then
+if verify_checksum "$checksum_control" >/dev/null 2>&1; then
     echo "FAIL: checksum gate accepted a mutated identity" >&2
     exit 1
 fi
 echo "CONTROL_REJECTED gd-env package_checksum"
 cp "$(dirname "$ARCHIVE")/@aviorstudio_gd-env.zip.sha256" "$checksum_control/"
-"$ROOT_DIR/scripts/verify_package_checksum.sh" "$checksum_control"
+verify_checksum "$checksum_control"
 
 python3 - "$ARCHIVE" "$WORK/traversal.zip" "$WORK/symlink.zip" <<'PY'
 import stat
@@ -48,13 +51,13 @@ with zipfile.ZipFile(symlink, "w") as out:
         out.writestr(item, data)
 PY
 for control in traversal symlink; do
-    if "$ROOT_DIR/scripts/verify_package_archive.sh" "$WORK/$control.zip" "$EXPECTED" >/dev/null 2>&1; then
+    if verify_archive "$WORK/$control.zip" "$EXPECTED" >/dev/null 2>&1; then
         echo "FAIL: package archive gate accepted $control control" >&2
         exit 1
     fi
     echo "CONTROL_REJECTED gd-env package_$control"
 done
-"$ROOT_DIR/scripts/verify_package_archive.sh" "$ARCHIVE" "$EXPECTED"
+verify_archive "$ARCHIVE" "$EXPECTED"
 
 PROJECT="$WORK/project"
 ADDON_DIR="$PROJECT/addons/@aviorstudio_gd-env"
@@ -184,7 +187,12 @@ run_editor() {
 run_editor "$WORK/enable.log" --script res://enable_plugin.gd
 grep -q '^GdEnv="\*' "$PROJECT/project.godot"
 run_editor "$WORK/restart-enabled.log" --quit-after 2
-GODOT_PROJECT_DIR="$PROJECT" "$ROOT_DIR/tests/run_godot_case.sh" "$PROJECT/smoke.gd" packaged_smoke 30 "$WORK/smoke.log"
+if ! python3 "${TOOLS_ROOT:?Run make setup}/helpers/godot-test.py" --project "$PROJECT" --program "$PROJECT/smoke.gd" --timeout 30 \
+    --sentinel "PASS gd-env packaged_smoke" --assertions-regex '^REACHED gd-env packaged_smoke assertions=([1-9][0-9]*)$' >"$WORK/smoke.log" 2>&1; then
+    cat "$WORK/smoke.log"
+    exit 1
+fi
+cat "$WORK/smoke.log"
 
 run_editor "$WORK/disable.log" --script res://disable_plugin.gd
 run_editor "$WORK/restart-disabled.log" --quit-after 2
@@ -220,11 +228,18 @@ fi
 run_editor "$WORK/consumer-enable.log" --script res://enable_plugin.gd
 run_editor "$WORK/consumer-disable.log" --script res://disable_plugin.gd
 run_editor "$WORK/consumer-restart.log" --quit-after 2
-GODOT_PROJECT_DIR="$PROJECT" "$ROOT_DIR/tests/run_godot_case.sh" "$PROJECT/consumer_smoke.gd" consumer_autoload 30 "$WORK/consumer-smoke.log"
+if ! python3 "${TOOLS_ROOT:?Run make setup}/helpers/godot-test.py" --project "$PROJECT" --program "$PROJECT/consumer_smoke.gd" --timeout 30 \
+    --sentinel "PASS gd-env consumer_autoload" --assertions-regex '^REACHED gd-env consumer_autoload assertions=([1-9][0-9]*)$' >"$WORK/consumer-smoke.log" 2>&1; then
+    cat "$WORK/consumer-smoke.log"
+    exit 1
+fi
+cat "$WORK/consumer-smoke.log"
 if grep -q '^plugin_owns_autoload=' "$PROJECT/project.godot"; then
     echo "FAIL: consumer-owned autoload acquired plugin ownership marker" >&2
     exit 1
 fi
+
+python3 "$PACKAGE_HELPER" verify --archive "$ARCHIVE" --manifest "$EXPECTED" --installed "$ADDON_DIR" --source "$ROOT_DIR/addon" --script-uids
 
 (cd "$ADDON_DIR" && find . -type f -printf '%P\0' | LC_ALL=C sort -z | xargs -0 sha256sum) >"$WORK/installed-tree.sha256"
 sha256sum "$ARCHIVE"
