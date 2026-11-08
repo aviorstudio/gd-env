@@ -17,7 +17,7 @@ run_case() {
     local deadline=$3
     local log=$4
     local status=0
-    python3 "${TOOLS_ROOT:?Run make setup}/helpers/godot-test.py" \
+    python3 "${TOOLS_ROOT:?Run mise run setup}/helpers/godot-test.py" \
         --project "$ROOT_DIR" --program "$program" --timeout "$deadline" \
         --sentinel "PASS gd-env $case_name" \
         --assertions-regex "^REACHED gd-env ${case_name} assertions=([1-9][0-9]*)$" >"$log" 2>&1 || status=$?

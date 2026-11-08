@@ -27,7 +27,7 @@ for relative_test in "${tests[@]}"; do
     test_path="$ROOT_DIR/$relative_test"
     case_name=$(basename "$relative_test" .gd)
     echo "Running $relative_test..."
-    if ! python3 "${TOOLS_ROOT:?Run make setup}/helpers/godot-test.py" \
+    if ! python3 "${TOOLS_ROOT:?Run mise run setup}/helpers/godot-test.py" \
         --project "$ROOT_DIR" --program "$test_path" --timeout 30 \
         --sentinel "PASS gd-env $case_name" \
         --assertions-regex "^REACHED gd-env ${case_name} assertions=([1-9][0-9]*)$" >"$LOG_DIR/$case_name.log" 2>&1; then
