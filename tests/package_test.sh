@@ -5,7 +5,7 @@ ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 GODOT=${GODOT_BIN:-godot}
 ARCHIVE=${1:-"$ROOT_DIR/dist/@aviorstudio_gd-env.zip"}
 EXPECTED="$ROOT_DIR/package.files"
-PACKAGE_HELPER="${TOOLS_ROOT:?Run make setup}/helpers/addon-package.py"
+PACKAGE_HELPER="${TOOLS_ROOT:?Run mise run setup}/helpers/addon-package.py"
 verify_checksum() { python3 "$PACKAGE_HELPER" checksum --archive "$1/@aviorstudio_gd-env.zip"; }
 verify_archive() { python3 "$PACKAGE_HELPER" verify --archive "$1" --manifest "$2"; }
 WORK=$(mktemp -d)
@@ -187,7 +187,7 @@ run_editor() {
 run_editor "$WORK/enable.log" --script res://enable_plugin.gd
 grep -q '^GdEnv="\*' "$PROJECT/project.godot"
 run_editor "$WORK/restart-enabled.log" --quit-after 2
-if ! python3 "${TOOLS_ROOT:?Run make setup}/helpers/godot-test.py" --project "$PROJECT" --program "$PROJECT/smoke.gd" --timeout 30 \
+if ! python3 "${TOOLS_ROOT:?Run mise run setup}/helpers/godot-test.py" --project "$PROJECT" --program "$PROJECT/smoke.gd" --timeout 30 \
     --sentinel "PASS gd-env packaged_smoke" --assertions-regex '^REACHED gd-env packaged_smoke assertions=([1-9][0-9]*)$' >"$WORK/smoke.log" 2>&1; then
     cat "$WORK/smoke.log"
     exit 1
@@ -228,7 +228,7 @@ fi
 run_editor "$WORK/consumer-enable.log" --script res://enable_plugin.gd
 run_editor "$WORK/consumer-disable.log" --script res://disable_plugin.gd
 run_editor "$WORK/consumer-restart.log" --quit-after 2
-if ! python3 "${TOOLS_ROOT:?Run make setup}/helpers/godot-test.py" --project "$PROJECT" --program "$PROJECT/consumer_smoke.gd" --timeout 30 \
+if ! python3 "${TOOLS_ROOT:?Run mise run setup}/helpers/godot-test.py" --project "$PROJECT" --program "$PROJECT/consumer_smoke.gd" --timeout 30 \
     --sentinel "PASS gd-env consumer_autoload" --assertions-regex '^REACHED gd-env consumer_autoload assertions=([1-9][0-9]*)$' >"$WORK/consumer-smoke.log" 2>&1; then
     cat "$WORK/consumer-smoke.log"
     exit 1
